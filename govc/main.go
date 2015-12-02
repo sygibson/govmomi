@@ -55,6 +55,7 @@ import (
 	_ "github.com/vmware/govmomi/govc/vm"
 	_ "github.com/vmware/govmomi/govc/vm/disk"
 	_ "github.com/vmware/govmomi/govc/vm/guest"
+	_ "github.com/vmware/govmomi/govc/vm/markas"
 	_ "github.com/vmware/govmomi/govc/vm/network"
 )
 
