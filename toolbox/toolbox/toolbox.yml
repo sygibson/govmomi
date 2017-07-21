@@ -1,0 +1,35 @@
+# moby build -output iso-bios toolbox.yml
+
+kernel:
+  image: linuxkit/kernel:4.9.38
+  cmdline: "console=tty0 console=ttyS0"
+init:
+  - linuxkit/init:d049e7b2074da5cd699a27defb47eb101142455d
+  - linuxkit/runc:d5cbeb95bdafedb82ad2cf11cff1a5da7fcae630
+  - linuxkit/containerd:b6ffbb669248e3369081a6c4427026aa968a2385
+  - linuxkit/ca-certificates:67acf038c44bb191ebb704ec7bb39a1524052cdf
+onboot:
+  - name: sysctl
+    image: linuxkit/sysctl:d1a43c7c91e92374766f962dc8534cf9508756b0
+services:
+  - name: getty
+    image: linuxkit/getty:0a2955f3d7a10a0e71972791c3ba6400118f327e
+    env:
+     - INSECURE=true
+  - name: rngd
+    image: linuxkit/rngd:1516d5d70683a5d925fe475eb1b6164a2f67ac3b
+  - name: dhcpcd
+    image: linuxkit/dhcpcd:4b7b8bb024cebb1bbb9c8026d44d7cbc8e202c41
+  - name: sshd
+    image: linuxkit/sshd:89b2e91d7d1bf2f40220be0e3ed586e74746cceb
+  - name: toolbox
+    image: toolbox:latest
+files:
+  - path: root/.ssh/authorized_keys
+    source: ~/.ssh/id_rsa.pub
+    mode: "0600"
+    optional: true
+
+trust:
+  org:
+    - linuxkit
