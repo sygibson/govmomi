@@ -19,6 +19,7 @@ package view
 import (
 	"context"
 
+	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/types"
@@ -59,4 +60,87 @@ func (v ListView) Reset(ctx context.Context, refs []types.ManagedObjectReference
 	}
 	_, err := methods.ResetListView(ctx, v.Client(), &req)
 	return err
+}
+
+type TaskView struct {
+	*ListView
+
+	Prune  bool
+	Follow bool
+
+	Watch *types.ManagedObjectReference
+}
+
+func (m Manager) CreateTaskView(ctx context.Context, watch *types.ManagedObjectReference) (*TaskView, error) {
+	l, err := m.CreateListView(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tv := &TaskView{
+		ListView: l,
+		Watch:    watch,
+	}
+
+	return tv, nil
+}
+
+func (v TaskView) Collect(ctx context.Context, f func([]types.TaskInfo)) error {
+	ref := v.Reference()
+	filter := new(property.WaitFilter).Add(ref, "Task", []string{"info"}, v.TraversalSpec())
+
+	if v.Watch != nil {
+		filter.Add(*v.Watch, v.Watch.Type, []string{"recentTask"})
+	}
+
+	pc := property.DefaultCollector(v.Client())
+
+	return property.WaitForUpdates(ctx, pc, filter, func(updates []types.ObjectUpdate) bool {
+		var infos []types.TaskInfo
+		var prune []types.ManagedObjectReference
+		var tasks []types.ManagedObjectReference
+		var reset func()
+
+		for _, update := range updates {
+			for _, change := range update.ChangeSet {
+				if change.Name == "recentTask" {
+					tasks = change.Val.(types.ArrayOfManagedObjectReference).ManagedObjectReference
+					if len(tasks) != 0 {
+						reset = func() {
+							_ = v.Reset(ctx, tasks)
+						}
+					}
+
+					continue
+				}
+
+				info, ok := change.Val.(types.TaskInfo)
+				if !ok {
+					continue
+				}
+
+				infos = append(infos, info)
+
+				if v.Prune && info.CompleteTime != nil {
+					prune = append(prune, info.Task)
+				}
+			}
+		}
+
+		if len(infos) != 0 {
+			f(infos)
+		}
+
+		if reset != nil {
+			reset()
+		} else if len(prune) != 0 {
+			_ = v.Remove(ctx, prune)
+		}
+
+		if len(tasks) != 0 && len(infos) == 0 {
+			return false
+		}
+
+		return !v.Follow
+	})
 }

@@ -19,6 +19,7 @@ package event
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/view"
@@ -55,7 +56,7 @@ func (p *eventProcessor) addObject(ctx context.Context, obj types.ManagedObjectR
 		},
 	}
 
-	collector, err := p.mgr.CreateCollectorForEvents(ctx, filter)
+	collector, err := p.mgr.CreateCollector(ctx, filter)
 	if err != nil {
 		return fmt.Errorf("[%#v] %s", obj, err)
 	}
@@ -110,7 +111,7 @@ func (p *eventProcessor) run(ctx context.Context, tail bool) error {
 
 	ref := list.Reference()
 	filter := new(property.WaitFilter).Add(ref, collectors[0].Type, props, list.TraversalSpec())
-
+	filter.Spec.ObjectSet[0].Skip = types.NewBool(true)
 	return property.WaitForUpdates(ctx, c, filter, func(updates []types.ObjectUpdate) bool {
 		for _, update := range updates {
 			if err := p.process(update.Obj, update.ChangeSet); err != nil {
@@ -155,23 +156,17 @@ func newEventTailer() *eventTailer {
 }
 
 func (t *eventTailer) newEvents(evs []types.BaseEvent) []types.BaseEvent {
-	var ret []types.BaseEvent
-	if t.lastKey == invalidKey {
-		ret = evs
-	} else {
-		found := false
+	ret := evs
+
+	if t.lastKey != invalidKey {
 		for i := range evs {
-			if evs[i].GetEvent().Key != t.lastKey {
-				continue
+			if evs[i].GetEvent().Key == t.lastKey {
+				fmt.Fprintf(os.Stderr, "filter %d\n", i)
+				ret = evs[:i]
+				break
+			} else {
+				fmt.Fprintf(os.Stderr, "seen %d\n", len(evs))
 			}
-
-			found = true
-			ret = evs[:i]
-			break
-		}
-
-		if !found {
-			ret = evs
 		}
 	}
 

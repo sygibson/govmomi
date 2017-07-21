@@ -50,7 +50,7 @@ func NewManager(c *vim25.Client) *Manager {
 	return &m
 }
 
-func (m Manager) CreateCollectorForEvents(ctx context.Context, filter types.EventFilterSpec) (*HistoryCollector, error) {
+func (m Manager) CreateCollector(ctx context.Context, filter types.EventFilterSpec) (*HistoryCollector, error) {
 	req := types.CreateCollectorForEvents{
 		This:   m.Common.Reference(),
 		Filter: filter,

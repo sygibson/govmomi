@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015-2017 VMware, Inc. All Rights Reserved.
+Copyright (c) 2017 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package event
+package task
 
 import (
 	"context"
@@ -87,13 +87,13 @@ func (h *HistoryCollector) SetPageSize(ctx context.Context, maxCount int32) erro
 	return err
 }
 
-func (h *HistoryCollector) Next(ctx context.Context, maxCount int32) ([]types.BaseEvent, error) {
-	req := types.ReadNextEvents{
+func (h *HistoryCollector) Next(ctx context.Context, maxCount int32) ([]types.TaskInfo, error) {
+	req := types.ReadNextTasks{
 		This:     h.Reference(),
 		MaxCount: maxCount,
 	}
 
-	res, err := methods.ReadNextEvents(ctx, h.c, &req)
+	res, err := methods.ReadNextTasks(ctx, h.c, &req)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +101,13 @@ func (h *HistoryCollector) Next(ctx context.Context, maxCount int32) ([]types.Ba
 	return res.Returnval, nil
 }
 
-func (h *HistoryCollector) Previous(ctx context.Context, maxCount int32) ([]types.BaseEvent, error) {
-	req := types.ReadPreviousEvents{
+func (h *HistoryCollector) Previous(ctx context.Context, maxCount int32) ([]types.TaskInfo, error) {
+	req := types.ReadPreviousTasks{
 		This:     h.Reference(),
 		MaxCount: maxCount,
 	}
 
-	res, err := methods.ReadPreviousEvents(ctx, h.c, &req)
+	res, err := methods.ReadPreviousTasks(ctx, h.c, &req)
 	if err != nil {
 		return nil, err
 	}
