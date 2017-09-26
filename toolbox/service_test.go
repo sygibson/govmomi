@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -445,6 +446,20 @@ func TestServiceRunESX(t *testing.T) {
 	service.PrimaryIP = func() string {
 		log.Print("broadcasting IP")
 		return DefaultIP()
+	}
+
+	service.Command.Authenticate = func(_ vix.CommandRequestHeader, data []byte) error {
+		var c vix.UserCredentialNamePassword
+
+		if err := c.UnmarshalBinary(data); err != nil {
+			return err
+		}
+
+		if c.Name == "toolbox" && c.Password == "password" {
+			return nil
+		}
+
+		return fmt.Errorf("%s shall not pass", c.Name)
 	}
 
 	log.Print("starting toolbox service")

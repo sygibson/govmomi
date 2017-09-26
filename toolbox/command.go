@@ -76,8 +76,6 @@ func registerCommandServer(service *Service) *CommandServer {
 		vix.HgfsSendPacketCommand:                server.ProcessHgfsPacket,
 	}
 
-	server.ProcessStartCommand = DefaultStartCommand
-
 	service.RegisterHandler("Vix_1_Relayed_Command", server.Dispatch)
 
 	return server
@@ -221,6 +219,10 @@ func (c *CommandServer) StartCommand(header vix.CommandRequestHeader, data []byt
 	err := r.UnmarshalBinary(data)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.ProcessStartCommand == nil {
+		return nil, vix.Error(vix.FileAccessError)
 	}
 
 	pid, err := c.ProcessStartCommand(c.ProcessManager, r)
@@ -697,11 +699,7 @@ func (c *CommandServer) authenticate(r vix.CommandRequestHeader, data []byte) er
 			return err
 		}
 
-		if Trace {
-			fmt.Fprintf(traceLog, "ignoring credentials: %q:%q\n", c.Name, c.Password)
-		}
-
-		return nil
+		return fmt.Errorf("unable to authenticate user %q", c.Name)
 	default:
 		return fmt.Errorf("unsupported UserCredentialType=%d", r.UserCredentialType)
 	}

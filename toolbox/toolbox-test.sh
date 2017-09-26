@@ -146,7 +146,7 @@ if [ -n "$test" ] ; then
   GOVC_TLS_KNOWN_HOSTS=$(mktemp --tmpdir toolbox.XXXXXX)
   govc about.cert -k -thumbprint > "$GOVC_TLS_KNOWN_HOSTS"
 
-  export GOVC_TLS_KNOWN_HOSTS GOVC_GUEST_LOGIN=user:pass
+  export GOVC_TLS_KNOWN_HOSTS GOVC_GUEST_LOGIN=toolbox:password
 
   echo "Running toolbox tests..."
   ssh "${opts[@]}" "core@${ip}" ./toolbox.test -test.v=$verbose -test.run TestServiceRunESX -toolbox.testesx \

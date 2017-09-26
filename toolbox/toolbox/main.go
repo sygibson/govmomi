@@ -31,12 +31,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/vmware/govmomi/toolbox"
+	"github.com/vmware/govmomi/toolbox/vix"
 )
 
 // This example can be run on a VM hosted by ESX, Fusion or Workstation
@@ -47,6 +49,24 @@ func main() {
 	out := toolbox.NewBackdoorChannelOut()
 
 	service := toolbox.NewService(in, out)
+
+	// Authentication is required for guest operations.
+	service.Command.Authenticate = func(_ vix.CommandRequestHeader, data []byte) error {
+		var c vix.UserCredentialNamePassword
+
+		if err := c.UnmarshalBinary(data); err != nil {
+			return err
+		}
+
+		if c.Name == "toolbox" && c.Password == "password" {
+			return nil
+		}
+
+		return fmt.Errorf("%s shall not pass", c.Name)
+	}
+
+	// Enable running commands in guest (disabled by default)
+	service.Command.ProcessStartCommand = toolbox.DefaultStartCommand
 
 	if os.Getuid() == 0 {
 		service.Power.Halt.Handler = toolbox.Halt

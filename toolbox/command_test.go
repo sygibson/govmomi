@@ -113,6 +113,21 @@ func TestVixRelayedCommandHandler(t *testing.T) {
 
 	cmd := service.Command
 
+	cmd.Authenticate = func(_ vix.CommandRequestHeader, data []byte) error {
+		var c vix.UserCredentialNamePassword
+		if err := c.UnmarshalBinary(data); err != nil {
+			return err
+		}
+
+		if c.Name == "user" && c.Password == "pass" {
+			return nil
+		}
+
+		return errors.New("you shall not pass")
+	}
+
+	cmd.ProcessStartCommand = DefaultStartCommand
+
 	msg := []byte("\"reqname\"\x00")
 
 	_, err := cmd.Dispatch(msg) // io.EOF
