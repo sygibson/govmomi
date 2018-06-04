@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"flag"
+	"log"
 	"os"
 
 	"github.com/vmware/govmomi/govc/cli"
@@ -54,6 +55,7 @@ func withClient(ctx context.Context, cmd *flags.ClientFlag, f func(*ssoadmin.Cli
 	}
 
 	if token == "" {
+		log.Printf("getting token...")
 		tokens, cerr := sts.NewClient(ctx, vc)
 		if cerr != nil {
 			return cerr
