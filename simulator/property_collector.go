@@ -781,18 +781,8 @@ func (pc *PropertyCollector) Fetch(ctx *Context, req *internal.Fetch) soap.HasFa
 	body := new(internal.FetchBody)
 
 	if req.This == vim25.ServiceInstance && req.Prop == "content" {
-		content := ctx.Map.content()
-		// ovftool uses API version for 6.0 and fails when these fields are non-nil; TODO
-		content.VStorageObjectManager = nil
-		content.HostProfileManager = nil
-		content.HostSpecManager = nil
-		content.CryptoManager = nil
-		content.HostProfileManager = nil
-		content.HealthUpdateManager = nil
-		content.FailoverClusterConfigurator = nil
-		content.FailoverClusterManager = nil
 		body.Res = &internal.FetchResponse{
-			Returnval: content,
+			Returnval: versionedServiceContent(ctx, ctx.Map.content()),
 		}
 		return body
 	}

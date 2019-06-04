@@ -313,3 +313,10 @@ load test_helper
   run govc vm.destroy "$TTYLINUX_NAME"
   assert_success
 }
+
+@test "vcsim vim version" {
+  vcsim_env -dc 0
+
+  govc about -json -l -vim-version 6.0 | jq .Content.CryptoManager | grep null
+  govc about -json -l -vim-version 7.0 | jq .Content.CryptoManager | grep -v null
+}

@@ -259,6 +259,7 @@ type Context struct {
 	Header  soap.Header
 	Caller  *types.ManagedObjectReference
 	Map     *Registry
+	Version string
 }
 
 // mapSession maps an HTTP cookie to a Session.

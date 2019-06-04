@@ -100,10 +100,37 @@ func NewServiceInstance(content types.ServiceContent, folder mo.Folder) *Service
 	return s
 }
 
-func (s *ServiceInstance) RetrieveServiceContent(*types.RetrieveServiceContent) soap.HasFault {
+func versionedServiceContent(ctx *Context, c types.ServiceContent) types.ServiceContent {
+	fields := []struct {
+		version string
+		refs    []**types.ManagedObjectReference
+	}{
+		{"6.5", []**types.ManagedObjectReference{
+			&c.CryptoManager,
+			&c.FailoverClusterConfigurator,
+			&c.FailoverClusterManager,
+			&c.HealthUpdateManager,
+			&c.HostProfileManager,
+			&c.HostSpecManager,
+			&c.VStorageObjectManager,
+		}},
+	}
+
+	for _, f := range fields {
+		if ctx.Version < f.version {
+			for _, ref := range f.refs {
+				*ref = nil
+			}
+		}
+	}
+
+	return c
+}
+
+func (s *ServiceInstance) RetrieveServiceContent(ctx *Context, _ *types.RetrieveServiceContent) soap.HasFault {
 	return &methods.RetrieveServiceContentBody{
 		Res: &types.RetrieveServiceContentResponse{
-			Returnval: s.Content,
+			Returnval: versionedServiceContent(ctx, s.Content),
 		},
 	}
 }

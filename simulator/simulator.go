@@ -411,6 +411,11 @@ func (s *Service) ServeSDK(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx.Map.WithLock(s.sm, ctx.mapSession)
 
+	action := strings.SplitN(r.Header.Get("SOAPAction"), "/", 2)
+	if len(action) == 2 {
+		ctx.Version = action[1]
+	}
+
 	var res soap.HasFault
 	var soapBody interface{}
 
