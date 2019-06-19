@@ -49,7 +49,8 @@ func (cmd *change) Description() string {
 
 Examples:
   govc dvs.portgroup.change -nports 26 ExternalNetwork
-  govc dvs.portgroup.change -vlan 3214 ExternalNetwork`
+  govc dvs.portgroup.change -vlan 3214 ExternalNetwork
+  govc dvs.portgroup.change -active-uplinks uplink2,uplink1 -active-standby uplink3 ExternalNetwork`
 }
 
 func (cmd *change) Process(ctx context.Context) error {

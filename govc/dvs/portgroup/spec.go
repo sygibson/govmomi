@@ -28,6 +28,10 @@ import (
 
 type DVPortgroupConfigSpec struct {
 	types.DVPortgroupConfigSpec
+
+	config         types.VMwareDVSPortSetting
+	activeUplinks  string
+	standbyUplinks string
 }
 
 func (spec *DVPortgroupConfigSpec) Register(ctx context.Context, f *flag.FlagSet) {
@@ -42,14 +46,33 @@ func (spec *DVPortgroupConfigSpec) Register(ctx context.Context, f *flag.FlagSet
 
 	f.Var(flags.NewInt32(&spec.NumPorts), "nports", "Number of ports")
 
-	config := new(types.VMwareDVSPortSetting)
+	spec.DefaultPortConfig = &spec.config
 	vlan := new(types.VmwareDistributedVirtualSwitchVlanIdSpec)
-	spec.DefaultPortConfig = config
-	config.Vlan = vlan
+	spec.config.Vlan = vlan
 
 	f.Var(flags.NewInt32(&vlan.VlanId), "vlan", "VLAN ID")
+	f.StringVar(&spec.activeUplinks, "active-uplinks", "", "Active uplinks")
+	f.StringVar(&spec.standbyUplinks, "standby-uplinks", "", "Standby uplinks")
 }
 
 func (spec *DVPortgroupConfigSpec) Spec() types.DVPortgroupConfigSpec {
+	policy := new(types.VmwareUplinkPortTeamingPolicy)
+	order := new(types.VMwareUplinkPortOrderPolicy)
+	uplinks := []struct {
+		val string
+		dst *[]string
+	}{
+		{spec.activeUplinks, &order.ActiveUplinkPort},
+		{spec.standbyUplinks, &order.StandbyUplinkPort},
+	}
+
+	for _, uplink := range uplinks {
+		if uplink.val != "" {
+			*uplink.dst = strings.Split(uplink.val, ",")
+			policy.UplinkPortOrder = order
+			spec.config.UplinkTeamingPolicy = policy
+		}
+	}
+
 	return spec.DVPortgroupConfigSpec
 }
