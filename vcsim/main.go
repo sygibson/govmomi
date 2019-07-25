@@ -36,6 +36,7 @@ import (
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/simulator"
 	"github.com/vmware/govmomi/simulator/esx"
+	"github.com/vmware/govmomi/simulator/guest"
 	"github.com/vmware/govmomi/vim25/types"
 
 	// Register vcsim optional endpoints
@@ -202,6 +203,10 @@ func main() {
 		if err := s.StartTunnel(); err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	for _, obj := range guest.NewOperationsManager(*model.ServiceContent.GuestOperationsManager) {
+		simulator.Map.Put(obj)
 	}
 
 	fmt.Fprintf(out, "export GOVC_URL=%s GOVC_SIM_PID=%d\n", s.URL, os.Getpid())

@@ -323,11 +323,21 @@ func (m *ProcessManager) Kill(pid int64) bool {
 func (m *ProcessManager) ListProcesses(pids []int64) []byte {
 	w := new(bytes.Buffer)
 
+	for _, p := range m.List(pids) {
+		_, _ = w.WriteString(p.toXML())
+	}
+
+	return w.Bytes()
+}
+
+func (m *ProcessManager) List(pids []int64) []ProcessState {
+	var list []ProcessState
+
 	m.mu.Lock()
 
 	if len(pids) == 0 {
 		for _, p := range m.entries {
-			_, _ = w.WriteString(p.toXML())
+			list = append(list, p.ProcessState)
 		}
 	} else {
 		for _, id := range pids {
@@ -336,13 +346,13 @@ func (m *ProcessManager) ListProcesses(pids []int64) []byte {
 				continue
 			}
 
-			_, _ = w.WriteString(p.toXML())
+			list = append(list, p.ProcessState)
 		}
 	}
 
 	m.mu.Unlock()
 
-	return w.Bytes()
+	return list
 }
 
 type procFileInfo struct {
