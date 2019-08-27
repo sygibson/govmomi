@@ -18,7 +18,6 @@ package vm
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"reflect"
@@ -57,14 +56,26 @@ func init() {
 	cli.Register("vm.change", &change{})
 }
 
-func setLatency(info **types.VirtualMachineConfigSpec) {
-	r := *info
+var latencyLevels = []string{
+	string(types.LatencySensitivitySensitivityLevelLow),
+	string(types.LatencySensitivitySensitivityLevelNormal),
+	string(types.LatencySensitivitySensitivityLevelHigh),
+}
 
-	if r.LatencySensitivity != nil {
-		return
+// setLatency validates latency level if set
+func (cmd *change) setLatency() error {
+	if cmd.Latency == "" {
+		return nil
 	}
-
-	*info = nil
+	for _, l := range latencyLevels {
+		if l == cmd.Latency {
+			cmd.LatencySensitivity = &types.LatencySensitivity{
+				Level: types.LatencySensitivitySensitivityLevel(cmd.Latency),
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("latency must be one of: %s", strings.Join(latencyLevels, "|"))
 }
 
 // setAllocation sets *info=nil if none of the fields have been set.
@@ -104,7 +115,7 @@ func (cmd *change) Register(ctx context.Context, f *flag.FlagSet) {
 	f.Var(flags.NewInt32(&cmd.NumCPUs), "c", "Number of CPUs")
 	f.StringVar(&cmd.GuestId, "g", "", "Guest OS")
 	f.StringVar(&cmd.Name, "name", "", "Display name")
-	f.StringVar(&cmd.Latency, "latency", "", "Latency Normal||High")
+	f.StringVar(&cmd.Latency, "latency", "", fmt.Sprintf("Latency sensitivity (%s)", strings.Join(latencyLevels, "|")))
 	f.StringVar(&cmd.Annotation, "annotation", "", "VM description")
 	f.Var(&cmd.extraConfig, "e", "ExtraConfig. <key>=<value>")
 
@@ -161,23 +172,8 @@ func (cmd *change) Run(ctx context.Context, f *flag.FlagSet) error {
 		cmd.Tools = nil // no flags set, avoid sending <tools/> in the request
 	}
 
-	// Set latency caseInsensitive  high||normal
-	var ok = false
-	if cmd.Latency != "" {
-		if strings.EqualFold(cmd.Latency, "high") {
-			cmd.LatencySensitivity = new(types.LatencySensitivity)
-			cmd.LatencySensitivity.Level = "high"
-			ok = true
-		}
-		if strings.EqualFold(cmd.Latency, "normal") {
-			cmd.LatencySensitivity = new(types.LatencySensitivity)
-			cmd.LatencySensitivity.Level = "normal"
-			ok = true
-		}
-		if !ok {
-			errMsg := fmt.Sprintf("Invalid Latency specified[%s] High||Normal only", cmd.Latency)
-			return errors.New(errMsg)
-		}
+	if err = cmd.setLatency(); err != nil {
+		return err
 	}
 
 	task, err := vm.Reconfigure(ctx, cmd.VirtualMachineConfigSpec)
