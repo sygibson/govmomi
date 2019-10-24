@@ -121,3 +121,63 @@ func ExecuteSoap(ctx context.Context, r soap.RoundTripper, req *ExecuteSoapReque
 
 	return resBody.Res, nil
 }
+
+type MarkAsLibraryItem_TaskBody struct {
+	Req    *MarkAsLibraryItem_TaskRequest  `xml:"urn:vim25 MarkAsLibraryItem_Task,omitempty"`
+	Res    *MarkAsLibraryItem_TaskResponse `xml:"MarkAsLibraryItem_TaskResponse,omitempty"`
+	Fault_ *soap.Fault                     `xml:"http://schemas.xmlsoap.org/soap/envelope/ Fault,omitempty"`
+}
+
+func (b *MarkAsLibraryItem_TaskBody) Fault() *soap.Fault { return b.Fault_ }
+
+func MarkAsLibraryItem_Task(ctx context.Context, r soap.RoundTripper, req *MarkAsLibraryItem_TaskRequest) (*MarkAsLibraryItem_TaskResponse, error) {
+	var reqBody, resBody MarkAsLibraryItem_TaskBody
+
+	reqBody.Req = req
+
+	if err := r.RoundTrip(ctx, &reqBody, &resBody); err != nil {
+		return nil, err
+	}
+
+	return resBody.Res, nil
+}
+
+type RemoveLibraryItem_TaskBody struct {
+	Req    *RemoveLibraryItem_TaskRequest  `xml:"urn:vim25 RemoveLibraryItem_Task,omitempty"`
+	Res    *RemoveLibraryItem_TaskResponse `xml:"RemoveLibraryItem_TaskResponse,omitempty"`
+	Fault_ *soap.Fault                     `xml:"http://schemas.xmlsoap.org/soap/envelope/ Fault,omitempty"`
+}
+
+func (b *RemoveLibraryItem_TaskBody) Fault() *soap.Fault { return b.Fault_ }
+
+func RemoveLibraryItem_Task(ctx context.Context, r soap.RoundTripper, req *RemoveLibraryItem_TaskRequest) (*RemoveLibraryItem_TaskResponse, error) {
+	var reqBody, resBody RemoveLibraryItem_TaskBody
+
+	reqBody.Req = req
+
+	if err := r.RoundTrip(ctx, &reqBody, &resBody); err != nil {
+		return nil, err
+	}
+
+	return resBody.Res, nil
+}
+
+type CloneVmAsLibraryItem_TaskBody struct {
+	Req    *CloneVmAsLibraryItem_TaskRequest  `xml:"urn:vim25 CloneVmAsLibraryItem_Task,omitempty"`
+	Res    *CloneVmAsLibraryItem_TaskResponse `xml:"CloneVmAsLibraryItem_TaskResponse,omitempty"`
+	Fault_ *soap.Fault                        `xml:"http://schemas.xmlsoap.org/soap/envelope/ Fault,omitempty"`
+}
+
+func (b *CloneVmAsLibraryItem_TaskBody) Fault() *soap.Fault { return b.Fault_ }
+
+func CloneVmAsLibraryItem_Task(ctx context.Context, r soap.RoundTripper, req *CloneVmAsLibraryItem_TaskRequest) (*CloneVmAsLibraryItem_TaskResponse, error) {
+	var reqBody, resBody CloneVmAsLibraryItem_TaskBody
+
+	reqBody.Req = req
+
+	if err := r.RoundTrip(ctx, &reqBody, &resBody); err != nil {
+		return nil, err
+	}
+
+	return resBody.Res, nil
+}

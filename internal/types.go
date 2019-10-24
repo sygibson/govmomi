@@ -268,3 +268,49 @@ type ExecuteSoapRequest struct {
 type ExecuteSoapResponse struct {
 	Returnval *ReflectManagedMethodExecuterSoapResult `xml:"urn:vim25 returnval"`
 }
+
+type VirtualMachineContentLibraryItemInfo struct {
+	ContentLibraryItemUuid    string `xml:"contentLibraryItemUuid"`
+	ContentLibraryItemVersion string `xml:"contentLibraryItemVersion,omitempty"`
+}
+
+func init() {
+	types.Add("VirtualMachineContentLibraryItemInfo", reflect.TypeOf((*VirtualMachineContentLibraryItemInfo)(nil)).Elem())
+}
+
+type MarkAsLibraryItem_TaskRequest struct {
+	This                types.ManagedObjectReference         `xml:"_this"`
+	Pool                types.ManagedObjectReference         `xml:"pool"`
+	Host                *types.ManagedObjectReference        `xml:"host,omitempty"`
+	Info                VirtualMachineContentLibraryItemInfo `xml:"info"`
+	SnapshotName        string                               `xml:"snapshotName"`
+	SnapshotDescription string                               `xml:"snapshotDescription"`
+}
+
+type MarkAsLibraryItem_TaskResponse struct {
+	Returnval types.ManagedObjectReference `xml:"returnval"`
+}
+
+type RemoveLibraryItem_TaskRequest struct {
+	This types.ManagedObjectReference  `xml:"_this"`
+	Pool types.ManagedObjectReference  `xml:"pool"`
+	Host *types.ManagedObjectReference `xml:"host,omitempty"`
+}
+
+type RemoveLibraryItem_TaskResponse struct {
+	Returnval types.ManagedObjectReference `xml:"returnval"`
+}
+
+type CloneVmAsLibraryItem_TaskRequest struct {
+	This                types.ManagedObjectReference         `xml:"_this"`
+	Folder              types.ManagedObjectReference         `xml:"folder"`
+	Name                string                               `xml:"name"`
+	Spec                types.VirtualMachineCloneSpec        `xml:"spec"`
+	ItemInfo            VirtualMachineContentLibraryItemInfo `xml:"itemInfo"`
+	SnapshotName        string                               `xml:"snapshotName"`
+	SnapshotDescription string                               `xml:"snapshotDescription"`
+}
+
+type CloneVmAsLibraryItem_TaskResponse struct {
+	Returnval types.ManagedObjectReference `xml:"returnval"`
+}

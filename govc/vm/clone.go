@@ -23,8 +23,12 @@ import (
 
 	"github.com/vmware/govmomi/govc/cli"
 	"github.com/vmware/govmomi/govc/flags"
+	"github.com/vmware/govmomi/internal"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/vapi/library"
+	"github.com/vmware/govmomi/vapi/library/finder"
+	"github.com/vmware/govmomi/vapi/rest"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -53,6 +57,7 @@ type clone struct {
 	annotation    string
 	snapshot      string
 	link          bool
+	library       string
 
 	Client         *vim25.Client
 	Cluster        *object.ClusterComputeResource
@@ -110,6 +115,7 @@ func (cmd *clone) Register(ctx context.Context, f *flag.FlagSet) {
 	f.StringVar(&cmd.annotation, "annotation", "", "VM description")
 	f.StringVar(&cmd.snapshot, "snapshot", "", "Snapshot name to clone from")
 	f.BoolVar(&cmd.link, "link", false, "Creates a linked clone from snapshot or source VM")
+	f.StringVar(&cmd.library, "library", "", "Clone as template to library")
 }
 
 func (cmd *clone) Usage() string {
@@ -240,6 +246,10 @@ func (cmd *clone) Run(ctx context.Context, f *flag.FlagSet) error {
 	vm, err := cmd.cloneVM(ctx)
 	if err != nil {
 		return err
+	}
+
+	if cmd.library != "" {
+		return nil
 	}
 
 	if cmd.cpus > 0 || cmd.memory > 0 || cmd.annotation != "" {
@@ -462,9 +472,49 @@ func (cmd *clone) cloneVM(ctx context.Context) (*object.VirtualMachine, error) {
 		cloneSpec.Customization = &customSpec
 	}
 
-	task, err := cmd.VirtualMachine.Clone(ctx, cmd.Folder, cmd.name, *cloneSpec)
-	if err != nil {
-		return nil, err
+	var task *object.Task
+
+	if cmd.library != "" {
+		var info internal.VirtualMachineContentLibraryItemInfo
+		err = cmd.WithRestClient(ctx, func(c *rest.Client) error {
+			m := library.NewManager(c)
+			res, err := finder.NewFinder(m).Find(ctx, cmd.library)
+			if err != nil {
+				return err
+			}
+			if len(res) != 1 {
+				return fmt.Errorf("-library %q matches %d items", cmd.library, len(res))
+			}
+			l, ok := res[0].GetResult().(library.Library)
+			if !ok {
+				return fmt.Errorf("-library %q is a %T", cmd.library, res[0].GetResult())
+			}
+			info.ContentLibraryItemUuid = l.ID
+			info.ContentLibraryItemVersion = "version-1"
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		x, err := internal.CloneVmAsLibraryItem_Task(ctx, cmd.Client, &internal.CloneVmAsLibraryItem_TaskRequest{
+			This:                cmd.VirtualMachine.Reference(),
+			Folder:              cmd.Folder.Reference(),
+			Name:                cmd.name,
+			Spec:                *cloneSpec,
+			ItemInfo:            info,
+			SnapshotName:        "clone " + cmd.name,
+			SnapshotDescription: "Clone of " + cmd.name,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		task = object.NewTask(cmd.Client, x.Returnval)
+	} else {
+		task, err = cmd.VirtualMachine.Clone(ctx, cmd.Folder, cmd.name, *cloneSpec)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	logger := cmd.ProgressLogger(fmt.Sprintf("Cloning %s to %s...", cmd.VirtualMachine.InventoryPath, cmd.name))
