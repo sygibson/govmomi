@@ -22,9 +22,13 @@ import (
 	"log"
 
 	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/simulator"
 	"github.com/vmware/govmomi/vim25"
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 // Example boilerplate for starting a simulator initialized with an ESX model.
@@ -123,4 +127,61 @@ func ExampleTest() {
 		fmt.Print(s.UserName)
 	})
 	// Output: user
+}
+
+type PropertyCollectorRetrievePropertiesOverride struct {
+	simulator.PropertyCollector
+}
+
+// RetrieveProperties overrides simulator.PropertyCollector.RetrieveProperties, returning a custom value for the "config.description" field
+func (pc *PropertyCollectorRetrievePropertiesOverride) RetrieveProperties(ctx *simulator.Context, req *types.RetrieveProperties) soap.HasFault {
+	body := &methods.RetrievePropertiesBody{
+		Res: &types.RetrievePropertiesResponse{
+			Returnval: []types.ObjectContent{
+				{
+					Obj: req.SpecSet[0].ObjectSet[0].Obj,
+					PropSet: []types.DynamicProperty{
+						{
+							Name: "config.description",
+							Val:  "This property overridden by vcsim test",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, spec := range req.SpecSet {
+		for _, prop := range spec.PropSet {
+			for _, path := range prop.PathSet {
+				if path == "config.description" {
+					return body
+				}
+			}
+		}
+	}
+
+	return pc.PropertyCollector.RetrieveProperties(ctx, req)
+}
+
+func ExamplePropertyCollector_RetrieveProperties() {
+	simulator.Test(func(ctx context.Context, c *vim25.Client) {
+		ref := simulator.Map.Any("DistributedVirtualPortgroup").Reference()
+
+		pc := new(PropertyCollectorRetrievePropertiesOverride)
+		pc.Self = c.ServiceContent.PropertyCollector
+		simulator.Map.Put(pc)
+
+		pg := object.NewDistributedVirtualPortgroup(c, ref)
+
+		var content []types.ObjectContent
+
+		err := pg.Properties(ctx, pg.Reference(), []string{"config.description"}, &content)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(content[0].PropSet[0].Val)
+	})
+	// Output: This property overridden by vcsim test
 }
