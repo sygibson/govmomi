@@ -128,20 +128,33 @@ func (m *ProfileManager) PbmQueryAssociatedProfile(req *types.PbmQueryAssociated
 func (m *ProfileManager) PbmRetrieveContent(req *types.PbmRetrieveContent) soap.HasFault {
 	body := new(methods.PbmRetrieveContentBody)
 	if len(req.ProfileIds) == 0 {
-		body.Fault_ = simulator.Fault("", &vim.InvalidArgument{InvalidProperty: "profileIds"})
+		body.Fault_ = simulator.Fault("", new(vim.InvalidRequest))
 		return body
 	}
-	body.Res = new(types.PbmRetrieveContentResponse)
 
-	for _, p := range profiles {
+	var res []types.BasePbmProfile
+
+	match := func(p types.BasePbmProfile) bool {
 		id := p.GetPbmProfile().ProfileId
-
 		for _, rid := range req.ProfileIds {
 			if id == rid {
-				body.Res.Returnval = append(body.Res.Returnval, p)
+				res = append(res, p)
+				return true
 			}
 		}
+		return false
 	}
+
+	for _, p := range profiles {
+		if match(p) {
+			continue
+		}
+
+		body.Fault_ = simulator.Fault("", &vim.InvalidArgument{InvalidProperty: "profileId"})
+		return body
+	}
+
+	body.Res = &types.PbmRetrieveContentResponse{Returnval: res}
 
 	return body
 }
