@@ -115,6 +115,7 @@ func (m *ViewManager) CreateContainerView(ctx *Context, req *types.CreateContain
 	container.add(root, seen)
 
 	ctx.Session.Registry.Put(container)
+	ctx.Map.AddHandler(container)
 
 	return body
 }
@@ -126,6 +127,7 @@ type ContainerView struct {
 }
 
 func (v *ContainerView) DestroyView(ctx *Context, c *types.DestroyView) soap.HasFault {
+	ctx.Map.RemoveHandler(v)
 	ctx.Session.Remove(c.This)
 	return destroyView(c.This)
 }
@@ -181,6 +183,20 @@ func (v *ContainerView) add(root mo.Reference, seen map[types.ManagedObjectRefer
 		}
 	})
 }
+
+func (v *ContainerView) PutObject(obj mo.Reference) {
+	ref := obj.Reference()
+
+	if v.include(ref) {
+		Map.Update(v, []types.PropertyChange{{Name: "view", Val: append(v.View, ref)}})
+	}
+}
+
+func (v *ContainerView) RemoveObject(obj types.ManagedObjectReference) {
+	Map.RemoveReference(v, &v.View, obj)
+}
+
+func (*ContainerView) UpdateObject(mo.Reference, []types.PropertyChange) {}
 
 func (m *ViewManager) CreateListView(ctx *Context, req *types.CreateListView) soap.HasFault {
 	body := new(methods.CreateListViewBody)

@@ -143,6 +143,13 @@ func (r *Registry) AddHandler(h RegisterObject) {
 	r.m.Unlock()
 }
 
+// RemoveHandler removes a RegisterObject handler from the Registry.
+func (r *Registry) RemoveHandler(h RegisterObject) {
+	r.m.Lock()
+	delete(r.handlers, h.Reference())
+	r.m.Unlock()
+}
+
 // NewEntity sets Entity().Self with a new, unique Value.
 // Useful for creating object instances from templates.
 func (r *Registry) NewEntity(item mo.Entity) mo.Entity {
