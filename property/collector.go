@@ -47,6 +47,12 @@ func DefaultCollector(c *vim25.Client) *Collector {
 	return &p
 }
 
+// Retriever can be used as the dst param to Retrieve
+type Retriever interface {
+	RetrieveResult([]types.ObjectContent) error
+	RetrieveOptions() types.RetrieveOptions
+}
+
 func (p Collector) Reference() types.ManagedObjectReference {
 	return p.reference
 }
@@ -160,7 +166,8 @@ func (p *Collector) Retrieve(ctx context.Context, objs []types.ManagedObjectRefe
 		objectSet = append(objectSet, objectSpec)
 	}
 
-	req := types.RetrieveProperties{
+	req := types.RetrievePropertiesEx{
+		This: p.Reference(),
 		SpecSet: []types.PropertyFilterSpec{
 			{
 				ObjectSet: objectSet,
@@ -169,17 +176,48 @@ func (p *Collector) Retrieve(ctx context.Context, objs []types.ManagedObjectRefe
 		},
 	}
 
-	res, err := p.RetrieveProperties(ctx, req)
+	retrieve := func(content []types.ObjectContent) error {
+		if d, ok := dst.(*[]types.ObjectContent); ok {
+			*d = content
+			return nil
+		}
+		return mo.LoadObjectContent(content, dst)
+	}
+
+	pr, ok := dst.(Retriever)
+	if ok {
+		retrieve = pr.RetrieveResult
+		req.Options = pr.RetrieveOptions()
+	}
+
+	c := p.roundTripper
+	res, err := methods.RetrievePropertiesEx(ctx, c, &req)
 	if err != nil {
 		return err
 	}
 
-	if d, ok := dst.(*[]types.ObjectContent); ok {
-		*d = res.Returnval
-		return nil
+	if err = retrieve(res.Returnval.Objects); err != nil {
+		return err
 	}
 
-	return mo.LoadObjectContent(res.Returnval, dst)
+	token := res.Returnval.Token
+
+	for token != "" {
+		creq := types.ContinueRetrievePropertiesEx{
+			This:  req.This,
+			Token: token,
+		}
+		cres, err := methods.ContinueRetrievePropertiesEx(ctx, c, &creq)
+		if err != nil {
+			return err
+		}
+		token = cres.Returnval.Token
+		if err = retrieve(cres.Returnval.Objects); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // RetrieveWithFilter populates dst as Retrieve does, but only for entities matching the given filter.

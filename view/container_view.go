@@ -21,6 +21,7 @@ import (
 
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 )
@@ -70,7 +71,8 @@ func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string,
 		pspec = append(pspec, spec)
 	}
 
-	req := types.RetrieveProperties{
+	req := types.RetrievePropertiesEx{
+		This: pc.Reference(),
 		SpecSet: []types.PropertyFilterSpec{
 			{
 				ObjectSet: []types.ObjectSpec{ospec},
@@ -79,17 +81,48 @@ func (v ContainerView) Retrieve(ctx context.Context, kind []string, ps []string,
 		},
 	}
 
-	res, err := pc.RetrieveProperties(ctx, req)
+	retrieve := func(content []types.ObjectContent) error {
+		if d, ok := dst.(*[]types.ObjectContent); ok {
+			*d = content
+			return nil
+		}
+		return mo.LoadObjectContent(content, dst)
+	}
+
+	pr, ok := dst.(property.Retriever)
+	if ok {
+		retrieve = pr.RetrieveResult
+		req.Options = pr.RetrieveOptions()
+	}
+
+	c := v.Client()
+	res, err := methods.RetrievePropertiesEx(ctx, c, &req)
 	if err != nil {
 		return err
 	}
 
-	if d, ok := dst.(*[]types.ObjectContent); ok {
-		*d = res.Returnval
-		return nil
+	if err = retrieve(res.Returnval.Objects); err != nil {
+		return err
 	}
 
-	return mo.LoadObjectContent(res.Returnval, dst)
+	token := res.Returnval.Token
+
+	for token != "" {
+		creq := types.ContinueRetrievePropertiesEx{
+			This:  req.This,
+			Token: token,
+		}
+		cres, err := methods.ContinueRetrievePropertiesEx(ctx, c, &creq)
+		if err != nil {
+			return err
+		}
+		token = cres.Returnval.Token
+		if err = retrieve(cres.Returnval.Objects); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // RetrieveWithFilter populates dst as Retrieve does, but only for entities matching the given filter.

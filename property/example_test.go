@@ -25,6 +25,7 @@ import (
 	"github.com/vmware/govmomi/simulator"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 // Example to retrieve properties from a single object
@@ -44,6 +45,49 @@ func ExampleCollector_RetrieveOne() {
 		}
 
 		fmt.Printf("hardware version %s", vm.Config.Version)
+		return nil
+	})
+	// Output: hardware version vmx-13
+}
+
+type ExampleRetriever struct {
+	opts  types.RetrieveOptions
+	hosts []mo.HostSystem
+}
+
+func (r ExampleRetriever) RetrieveOptions() types.RetrieveOptions {
+	return r.opts
+}
+
+func (r ExampleRetriever) RetrieveResult(content []types.ObjectContent) error {
+	var hosts []mo.HostSystem
+	err := mo.LoadRetrievePropertiesResponse(&types.RetrievePropertiesResponse{Returnval: content}, &hosts)
+	if err != nil {
+		return err
+	}
+	r.hosts = append(r.hosts, hosts...)
+	return nil
+}
+
+func ExampleRetriever_RetrieveResult() {
+	simulator.Run(func(ctx context.Context, c *vim25.Client) error {
+		pc := property.DefaultCollector(c)
+		obj, err := find.NewFinder(c).ClusterComputeResource(ctx, "DC0_C0")
+		if err != nil {
+			return err
+		}
+
+		var cluster mo.ClusterComputeResource
+		err = pc.RetrieveOne(ctx, obj.Reference(), []string{"host"}, &cluster)
+		if err != nil {
+			return err
+		}
+
+		err = pc.Retrieve(ctx, cluster.Host, []string{"summary"}, nil /*TODO*/)
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 	// Output: hardware version vmx-13
