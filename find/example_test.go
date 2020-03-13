@@ -26,6 +26,30 @@ import (
 	"github.com/vmware/govmomi/vim25"
 )
 
+func ExampleFinder_ClusterComputeResourceList() {
+	model := simulator.VPX()
+	model.Cluster = 3
+
+	simulator.Run(func(ctx context.Context, c *vim25.Client) error {
+		finder := find.NewFinder(c)
+
+		clusters, err := finder.ClusterComputeResourceList(ctx, "*")
+		if err != nil {
+			return err
+		}
+
+		for _, cluster := range clusters {
+			fmt.Println(cluster.InventoryPath)
+		}
+
+		return nil
+	}, model)
+	// Output:
+	// /DC0/host/DC0_C0
+	// /DC0/host/DC0_C1
+	// /DC0/host/DC0_C2
+}
+
 func ExampleMultipleFoundError() {
 	model := simulator.VPX()
 	model.Portgroup = 2

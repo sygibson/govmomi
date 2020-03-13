@@ -22,6 +22,7 @@ import (
 	"log"
 	"sort"
 
+	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/simulator"
@@ -92,6 +93,54 @@ func ExampleContainerView_RetrieveWithFilter() {
 
 		sort.Strings(names)
 		fmt.Println(names)
+
+		return v.Destroy(ctx)
+	})
+	// Output: [DC0_C0_RP0_VM1 DC0_H0_VM1]
+}
+
+func ExampleContainerView_vmTemplateRetrieveWithFilter() {
+	simulator.Run(func(ctx context.Context, c *vim25.Client) error {
+		vm, err := find.NewFinder(c).VirtualMachine(ctx, "DC0_H0_VM0")
+		if err != nil {
+			return err
+		}
+
+		_, _ = vm.PowerOff(ctx)
+		if err = vm.MarkAsTemplate(ctx); err != nil {
+			return err
+		}
+
+		m := view.NewManager(c)
+		kind := []string{"VirtualMachine"}
+
+		v, err := m.CreateContainerView(ctx, c.ServiceContent.RootFolder, kind, true)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var vms []mo.VirtualMachine
+
+		err = v.Retrieve(ctx, kind, []string{"name"}, &vms)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("all=%d\n", len(vms))
+
+		vms = nil
+		err = v.RetrieveWithFilter(ctx, kind, []string{"name"}, &vms, property.Filter{"config.template": false})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("false=%d\n", len(vms))
+
+		vms = nil
+		err = v.RetrieveWithFilter(ctx, kind, []string{"name"}, &vms, property.Filter{"config.template": true})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("true=%d\n", len(vms))
 
 		return v.Destroy(ctx)
 	})

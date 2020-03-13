@@ -25,6 +25,7 @@ import (
 	"github.com/vmware/govmomi/simulator"
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 // Example to retrieve properties from a single object
@@ -44,6 +45,60 @@ func ExampleCollector_RetrieveOne() {
 		}
 
 		fmt.Printf("hardware version %s", vm.Config.Version)
+		return nil
+	})
+	// Output: hardware version vmx-13
+}
+
+func ExampleCollector_RetrieveProperties() {
+	simulator.Run(func(ctx context.Context, c *vim25.Client) error {
+		pc := property.DefaultCollector(c)
+
+		obj, err := find.NewFinder(c).VirtualMachine(ctx, "DC0_H0_VM0")
+		if err != nil {
+			return err
+		}
+
+		req := types.RetrieveProperties{
+			SpecSet: []types.PropertyFilterSpec{{
+				PropSet: []types.PropertySpec{
+					{
+						Type:    "ManagedEntity",
+						PathSet: []string{"name"},
+					},
+					{
+						Type:    "VirtualMachine",
+						PathSet: []string{"datastore", "network"},
+					},
+				},
+				ObjectSet: []types.ObjectSpec{{
+					Obj: obj.Reference(),
+					SelectSet: []types.BaseSelectionSpec{
+						&types.TraversalSpec{
+							Type: "VirtualMachine",
+							Path: "datastore",
+						},
+						&types.TraversalSpec{
+							Type: "VirtualMachine",
+							Path: "network",
+						},
+					},
+				}}},
+			}}
+
+		res, err := pc.RetrieveProperties(ctx, req)
+		if err != nil {
+			return err
+		}
+
+		for _, content := range res.Returnval {
+			for _, prop := range content.PropSet {
+				if prop.Name == "name" {
+					fmt.Printf("%s %s\n", content.Obj.Type, prop.Val)
+				}
+			}
+		}
+
 		return nil
 	})
 	// Output: hardware version vmx-13

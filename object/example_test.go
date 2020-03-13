@@ -399,3 +399,29 @@ func ExampleCustomizationSpecManager_Info() {
 	// vcsim-windows-static=*types.CustomizationSysprep
 	// vcsim-windows-domain=*types.CustomizationSysprep
 }
+
+func ExampleComputeResource_Reconfigure_clusterGroup() {
+	simulator.Run(func(ctx context.Context, c *vim25.Client) error {
+		cluster, err := find.NewFinder(c).ClusterComputeResource(ctx, "DC0_C0")
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%d vm\n", len(cluster.Name()))
+
+		pool, err := cluster.ResourcePool(ctx)
+		if err != nil {
+			return err
+		}
+
+		var props mo.ResourcePool
+		err = pool.Properties(ctx, pool.Reference(), []string{"vm"}, &props)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("VM=%d\n", len(props.Vm))
+		return nil
+	})
+	// Output:
+	// 0
+}
