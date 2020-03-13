@@ -18,11 +18,15 @@ package flags
 
 import (
 	"context"
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"html/template"
+	"net"
 	"os"
 
 	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/types"
 )
 
 type HostSystemFlag struct {
@@ -38,6 +42,23 @@ type HostSystemFlag struct {
 }
 
 var hostSystemFlagKey = flagKey("hostSystem")
+
+func wwn(n int64) string {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(n))
+	return net.HardwareAddr(b).String()
+}
+
+var hostSystemFlagFuncs = template.FuncMap{
+	"wwn": func(adapter types.BaseHostHostBusAdapter) string {
+		switch a := adapter.(type) {
+		case *types.HostFibreChannelHba:
+			return wwn(a.NodeWorldWideName)
+		default:
+			return "-"
+		}
+	},
+}
 
 func NewHostSystemFlag(ctx context.Context) (*HostSystemFlag, context.Context) {
 	if v := ctx.Value(hostSystemFlagKey); v != nil {

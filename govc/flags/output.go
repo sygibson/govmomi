@@ -22,9 +22,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,11 +44,12 @@ type OutputWriter interface {
 type OutputFlag struct {
 	common
 
-	JSON bool
-	XML  bool
-	TTY  bool
-	Dump bool
-	Out  io.Writer
+	JSON   bool
+	XML    bool
+	TTY    bool
+	Dump   bool
+	Format string
+	Out    io.Writer
 
 	formatError  bool
 	formatIndent bool
@@ -69,6 +72,7 @@ func (flag *OutputFlag) Register(ctx context.Context, f *flag.FlagSet) {
 		f.BoolVar(&flag.JSON, "json", false, "Enable JSON output")
 		f.BoolVar(&flag.XML, "xml", false, "Enable XML output")
 		f.BoolVar(&flag.Dump, "dump", false, "Enable Go output")
+		f.StringVar(&flag.Format, "F", "", "Output format")
 		// Avoid adding more flags for now..
 		flag.formatIndent = os.Getenv("GOVC_INDENT") != "false"      // Default to indented output
 		flag.formatError = os.Getenv("GOVC_FORMAT_ERROR") != "false" // Default to formatted errors
@@ -113,10 +117,10 @@ func (flag *OutputFlag) WriteString(s string) (int, error) {
 }
 
 func (flag *OutputFlag) All() bool {
-	return flag.JSON || flag.XML || flag.Dump
+	return flag.JSON || flag.XML || flag.Dump || flag.Format != ""
 }
 
-func dumpValue(val interface{}) interface{} {
+func dumpValue(val interface{}, asGo bool) interface{} {
 	type dumper interface {
 		Dump() interface{}
 	}
@@ -135,7 +139,7 @@ func dumpValue(val interface{}) interface{} {
 		f := rval.Field(0)
 		if f.Type().Kind() == reflect.Slice {
 			// common case for the various 'type infoResult'
-			if f.Len() == 1 {
+			if asGo && f.Len() == 1 {
 				return f.Index(0).Interface()
 			}
 			return f.Interface()
@@ -150,6 +154,10 @@ func dumpValue(val interface{}) interface{} {
 	return val
 }
 
+var OutputFlagFuncs = template.FuncMap{
+	"join": strings.Join,
+}
+
 func (flag *OutputFlag) WriteResult(result OutputWriter) error {
 	var err error
 
@@ -159,7 +167,7 @@ func (flag *OutputFlag) WriteResult(result OutputWriter) error {
 		if flag.formatIndent {
 			format = "%# v\n"
 		}
-		_, err = pretty.Fprintf(flag.Out, format, dumpValue(result))
+		_, err = pretty.Fprintf(flag.Out, format, dumpValue(result, true))
 	case flag.JSON:
 		e := json.NewEncoder(flag.Out)
 		if flag.formatIndent {
@@ -171,9 +179,14 @@ func (flag *OutputFlag) WriteResult(result OutputWriter) error {
 		if flag.formatIndent {
 			e.Indent("", "  ")
 		}
-		err = e.Encode(dumpValue(result))
+		err = e.Encode(dumpValue(result, false))
 		if err == nil {
 			fmt.Fprintln(flag.Out)
+		}
+	case flag.Format != "":
+		t, err := template.New("govc").Funcs(OutputFlagFuncs).Parse(flag.Format)
+		if err == nil {
+			err = t.Execute(flag.Out, dumpValue(result, true))
 		}
 	default:
 		err = result.Write(flag.Out)
