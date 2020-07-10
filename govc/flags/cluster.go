@@ -74,6 +74,14 @@ func (f *ClusterFlag) RegisterPlacement(ctx context.Context, fs *flag.FlagSet) {
 	})
 }
 
+func (f *ClusterFlag) RegisterNamespace(ctx context.Context, fs *flag.FlagSet) {
+	f.RegisterOnce(func() {
+		f.DatacenterFlag.Register(ctx, fs)
+
+		fs.StringVar(&f.Name, "namespace", "", "Namespace enabled cluster")
+	})
+}
+
 func (f *ClusterFlag) Process(ctx context.Context) error {
 	return f.ProcessOnce(func() error {
 		if err := f.DatacenterFlag.Process(ctx); err != nil {

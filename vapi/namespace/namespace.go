@@ -17,8 +17,12 @@ limitations under the License.
 package namespace
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
+	"path"
 
 	"github.com/vmware/govmomi/vapi/namespace/internal"
 	"github.com/vmware/govmomi/vapi/rest"
@@ -58,4 +62,42 @@ func (c *Manager) ListClusters(ctx context.Context) ([]ClusterSummary, error) {
 	var res []ClusterSummary
 	url := c.Resource(internal.NamespaceClusterPath)
 	return res, c.Do(ctx, url.Request(http.MethodGet), &res)
+}
+
+// SupportBundleToken information about the token required in the HTTP GET request to generate the support bundle.
+type SupportBundleToken struct {
+	Expiry string `json:"expiry"`
+	Token  string `json:"token"`
+}
+
+// SupportBundleLocation contains the URL to download the per-cluster support bundle from, as well as a token required.
+type SupportBundleLocation struct {
+	Token SupportBundleToken `json:"wcp_support_bundle_token"`
+	URL   string             `json:"url"`
+}
+
+// CreateSupportBundle retrieves the cluster's Namespaces-related support bundle.
+func (c *Manager) CreateSupportBundle(ctx context.Context, id string) (*SupportBundleLocation, error) {
+	var res SupportBundleLocation
+	url := c.Resource(path.Join(internal.NamespaceClusterPath, id, "support-bundle"))
+	return &res, c.Do(ctx, url.Request(http.MethodPost), &res)
+}
+
+func (c *Manager) GetSupportBundle(ctx context.Context, bundle *SupportBundleLocation, w io.Writer) error {
+	token := struct {
+		Value string `json:"wcp-support-bundle-token"`
+	}{bundle.Token.Token}
+
+	var b bytes.Buffer
+	err := json.NewEncoder(&b).Encode(token)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, bundle.URL, &b)
+	if err != nil {
+		return err
+	}
+
+	return c.Do(ctx, req, w)
 }
